@@ -81,10 +81,10 @@ function VikingBuddies:OnLoad()
 end
 
 function VikingBuddies:OnSave(eType)
-  Print("VikingBuddies:OnSave")
 
   local tSavedData = self.tUserSettings
   tSavedData.nOL, tSavedData.nOT, tSavedData.nOR, tSavedData.nOB = self.wndMain:GetAnchorOffsets()
+  tSavedData.nListOL, tSavedData.nListOT, tSavedData.nListOR, tSavedData.nListOB = self.wndListWindow:GetAnchorOffsets()
   tSavedData.bShowList = self.bShowList
 
   return tSavedData
@@ -103,10 +103,12 @@ function VikingBuddies:OnRestore(eType, tSavedData)
 end
 
 function VikingBuddies:PositionWindow()
-  Print("VikingBuddies:PositionWindow")
 
   if self.tUserSettings.nOL then
     self.wndMain:SetAnchorOffsets(self.tUserSettings.nOL, self.tUserSettings.nOT, self.tUserSettings.nOR, self.tUserSettings.nOB)
+  end
+  if self.tUserSettings.nListOL then
+    self.wndListWindow:SetAnchorOffsets(self.tUserSettings.nListOL, self.tUserSettings.nListOT, self.tUserSettings.nListOR, self.tUserSettings.nListOB)
   end
 
 end
@@ -120,6 +122,7 @@ function VikingBuddies:OnDocLoaded()
       self.wndOptions       = Apollo.LoadForm(self.xmlDoc, "VikingBuddiesForm", nil, self)
       self.wndMain          = Apollo.LoadForm(self.xmlDoc, "BuddyList", nil, self)
 
+      self.wndListWindow    = self.wndMain:FindChild("ListWindow")
       self.wndListContainer = self.wndMain:FindChild("ListContainer")
 
     if self.wndMain == nil then
@@ -127,14 +130,17 @@ function VikingBuddies:OnDocLoaded()
       return
     end
 
-
-    Print(self.bShowList)
     self.wndMain:Show(true, true)
     self.wndOptions:Show(false, true)
 
     -- I need to handle this better
     self.bShowList = self.tUserSettings.bShowList
-    self.wndListContainer:Show(self.bShowList, true)
+    self.wndListWindow:Show(self.bShowList, true)
+    self.wndListWindow:SetSizingMinimum(200, 120)
+
+
+    -- Restore the checkbutton state
+    self.wndMain:FindChild("Button"):SetCheck(self.bShowList)
 
     self:PositionWindow()
 
@@ -158,10 +164,15 @@ end
 
 -- on timer
 function VikingBuddies:OnRenderLoop()
-  -- Do your timer-related stuff here.
+
+  -- Don't bother rendering the list if it's not being displayed
   if self.bShowList then
     self:UpdateBuddyList()
   end
+
+  -- Get Number of online buddies
+  self:UpdateBuddiesOnline()
+
 end
 
 -- LOCAL STUFF
@@ -198,7 +209,7 @@ function VikingBuddies:UpdateFriendData(wndBuddyLine, tFriend)
   local colorText = self.tTextColors.offline
   local colorStatus = self.tStatusColors.offline
 
-  if tFriend.nPresenceState then
+  if tFriend.fLastOnline == 0 then
     colorText = self.tTextColors[tFriend.nPresenceState]
     colorStatus = self.tStatusColors[tFriend.nPresenceState]
   else
@@ -240,7 +251,7 @@ function VikingBuddies:GetFriends()
 
   for key, tFriend in pairs(FriendshipLib.GetAccountList()) do
     arFriends[tFriend.nId] = tFriend
-    Event_FireGenericEvent("SendVarToRover", "tFriend.nId: " .. tFriend.nId, self.arFriends[tFriend.nId])
+    -- Event_FireGenericEvent("SendVarToRover", "tFriend.nId: " .. tFriend.nId, self.arFriends[tFriend.nId])
     -- arFriends[tFriend.nId].wnd = self.arFriends[tFriend.nId].wnd
   end
 
@@ -272,15 +283,17 @@ end
 
 
 function VikingBuddies:UpdateBuddyList()
-  arFriends = self:GetFriends()
+  local arFriends = self:GetFriends()
   -- self.wndListContainer:DestroyChildren()
   self.wndListContainer:SetData(arFriends)
 
   for key, tFriend in pairs(self.arFriends) do
     self:UpdateBuddyLine(tFriend)
-    Event_FireGenericEvent("SendVarToRover", "tFriend: " .. tostring(tFriend.strCharacterName), tFriend)
+    -- Event_FireGenericEvent("SendVarToRover", "tFriend: " .. tostring(tFriend.strCharacterName), tFriend)
   end
 
+
+  -- Sort the buddy list by "online"
   self.wndListContainer:ArrangeChildrenVert(0, function(wndLeft, wndRight)
 
     local friendLeft = wndLeft:GetData()
@@ -291,13 +304,36 @@ function VikingBuddies:UpdateBuddyList()
     return state >= 0
 
   end)
+end
+
+function VikingBuddies:UpdateBuddiesOnline()
+  -- tFriend.nPresenceState
+  -- for i = 0, #self.arFriends do
+  local nOnline = 0
+  for key, tFriend in pairs(FriendshipLib.GetList()) do
+    if tFriend.fLastOnline == 0 then
+      nOnline = nOnline + 1
+    end
+  end
+
+  -- local btnButton = wndBuddiesOnline:FindChild("Button")
+  local txtBuddiesOnline = self.wndMain:FindChild("BuddiesOnline")
+  txtBuddiesOnline:SetText(nOnline)
 
 end
 
 
-function VikingBuddies:ToggleFriendsList( wndHandler, wndControl, eMouseButton )
-  self.bShowList = not self.bShowList
-  self.wndListContainer:Show(self.bShowList, true)
+function VikingBuddies:ShowFriendsList(bShow)
+  self.wndListWindow:Show(bShow, true)
+  self.bShowList = bShow
+end
+
+function VikingBuddies:OnListCheck( wndHandler, wndControl, eMouseButton )
+  self:ShowFriendsList(true)
+end
+
+function VikingBuddies:OnListUncheck( wndHandler, wndControl, eMouseButton )
+  self:ShowFriendsList(false)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -308,7 +344,7 @@ function VikingBuddies:OnGroupButtonClick( wndHandler, wndControl, eMouseButton 
   local data = wndControl:GetParent():GetData()
   GroupLib.Invite(data.strCharacterName)
 
-  Event_FireGenericEvent("SendVarToRover", "button click", data)
+  -- Event_FireGenericEvent("SendVarToRover", "button click", data)
 end
 
 -----------------------------------------------------------------------------------------------
