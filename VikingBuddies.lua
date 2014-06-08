@@ -35,9 +35,21 @@ function VikingBuddies:new(o)
     o.arAccountInvites = {}
     o.arInvites        = {}
     o.tUserSettings    = {}
-    o.tColors = {
-      online  = ApolloColor.new("UI_TextHoloBodyHighlight"),
-      offline = ApolloColor.new("UI_BtnTextGrayNormal")
+
+    o.cColorOffline = ApolloColor.new("UI_BtnTextGrayNormal")
+
+    o.tStatusColors = {
+      [FriendshipLib.AccountPresenceState_Available] = ApolloColor.new("ChatCircle2"),
+      [FriendshipLib.AccountPresenceState_Away]      = ApolloColor.new("yellow"),
+      [FriendshipLib.AccountPresenceState_Busy]      = ApolloColor.new("red"),
+      [FriendshipLib.AccountPresenceState_Invisible] = ApolloColor.new("gray")
+    }
+    o.tTextColors = {
+      [FriendshipLib.AccountPresenceState_Available] = ApolloColor.new("UI_TextHoloBodyHighlight"),
+      [FriendshipLib.AccountPresenceState_Away]      = ApolloColor.new("gray"),
+      [FriendshipLib.AccountPresenceState_Busy]      = ApolloColor.new("gray"),
+      [FriendshipLib.AccountPresenceState_Invisible] = ApolloColor.new("gray")
+
     }
 
     o.arListTypes =
@@ -132,7 +144,7 @@ function VikingBuddies:OnDocLoaded()
     -- Register handlers for events, slash commands and timer, etc.
     -- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 
-    self.timer = ApolloTimer.Create(0.100, true, "OnTimer", self)
+    self.timer = ApolloTimer.Create(0.100, true, "OnRenderLoop", self)
 
     -- Do additional Addon initialization here
   end
@@ -145,37 +157,55 @@ end
 -- Define general functions here
 
 -- on timer
-function VikingBuddies:OnTimer()
+function VikingBuddies:OnRenderLoop()
   -- Do your timer-related stuff here.
-  self:UpdateBuddyList()
+  if self.bShowList then
+    self:UpdateBuddyList()
+  end
 end
 
 -- LOCAL STUFF
 
+function VikingBuddies:GetLineByFriendId(nId)
+  for key, wndPlayerEntry in pairs(self.wndListContainer:GetChildren()) do
+    if wndPlayerEntry:GetData().nId == nId then
+      return wndPlayerEntry
+    end
+  end
+
+  return nil
+end
 
 function VikingBuddies:UpdateBuddyLine(tFriend)
-
-  local wndNew = self.wndListContainer:FindChildByUserData(tFriend)
-  Event_FireGenericEvent("SendVarToRover", "tFriend.nId: " .. tFriend.nId, self.wndListContainer)
+  local wndParent = self.wndListContainer
+  local wndNew = self:GetLineByFriendId(tFriend.nId)
 
   -- Check for friend
   if not wndNew then
     wndNew = Apollo.LoadForm(self.xmlDoc, "BuddyLine", self.wndListContainer, self)
+    wndNew:SetData(tFriend)
   end
 
+  wndParent:SetData(oData)
   self:UpdateFriendData(wndNew, tFriend)
 
   return wndNew
 end
 
 function VikingBuddies:UpdateFriendData(wndBuddyLine, tFriend)
-  Event_FireGenericEvent("SendVarToRover", "wndBuddyLine: " .. tFriend.nId, tFriend)
+  -- Event_FireGenericEvent("SendVarToRover", "wndBuddyLine: " .. tFriend.nId, tFriend)
 
-  local color = self.tColors.offline
+  local colorText = self.tTextColors.offline
+  local colorStatus = self.tStatusColors.offline
 
-  if tFriend.nPresenceState == 0 then
-    color = self.tColors.online
+  if tFriend.nPresenceState then
+    colorText = self.tTextColors[tFriend.nPresenceState]
+    colorStatus = self.tStatusColors[tFriend.nPresenceState]
+  else
+    colorText = self.cColorOffline
+    colorStatus = self.cColorOffline
   end
+
 
 
   -- Update data
@@ -183,12 +213,14 @@ function VikingBuddies:UpdateFriendData(wndBuddyLine, tFriend)
   local wndStatus = wndBuddyLine:FindChild("StatusIcon")
 
   wndName:SetText(tFriend.strCharacterName)
-  wndName:SetTextColor(color)
-  wndStatus:SetBGColor(color)
+  wndName:SetTextColor(colorText)
+  wndStatus:SetBGColor(colorStatus)
 
   -- Write the data
-  tFriend.wnd = wndNew
-  wndBuddyLine:SetData(tFriend)
+  -- tFriend.wnd = wndBuddyLine
+  -- self.arFriends[tFriend.nId] = tFriend
+  -- Event_FireGenericEvent("SendVarToRover", "::UpdateFriendData: " .. tFriend.nId, tFriend)
+
 end
 
 function VikingBuddies:GetFriends()
@@ -208,10 +240,14 @@ function VikingBuddies:GetFriends()
 
   for key, tFriend in pairs(FriendshipLib.GetAccountList()) do
     arFriends[tFriend.nId] = tFriend
+    Event_FireGenericEvent("SendVarToRover", "tFriend.nId: " .. tFriend.nId, self.arFriends[tFriend.nId])
+    -- arFriends[tFriend.nId].wnd = self.arFriends[tFriend.nId].wnd
   end
 
   self.arIgnored = arIgnored
   self.arFriends = arFriends
+
+  return arFriends
 
 end
 
@@ -236,18 +272,25 @@ end
 
 
 function VikingBuddies:UpdateBuddyList()
-
-  self.wndListContainer:DestroyChildren()
-  self:GetFriends()
+  arFriends = self:GetFriends()
+  -- self.wndListContainer:DestroyChildren()
+  self.wndListContainer:SetData(arFriends)
 
   for key, tFriend in pairs(self.arFriends) do
     self:UpdateBuddyLine(tFriend)
     Event_FireGenericEvent("SendVarToRover", "tFriend: " .. tostring(tFriend.strCharacterName), tFriend)
   end
 
+  self.wndListContainer:ArrangeChildrenVert(0, function(wndLeft, wndRight)
 
-  self.wndListContainer:SetData(self.arFriends)
-  self.wndListContainer:ArrangeChildrenVert()
+    local friendLeft = wndLeft:GetData()
+    local friendRight = wndRight:GetData()
+
+    local state = friendLeft.nPresenceState or -1
+
+    return state >= 0
+
+  end)
 
 end
 
