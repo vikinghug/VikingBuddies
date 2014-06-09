@@ -30,11 +30,22 @@ function VikingBuddies:new(o)
     self.__index = self
 
     -- indexing to call against the radio buttons
-    o.arFriends        = {}
-    o.arAccountFriends = {}
-    o.arAccountInvites = {}
-    o.arInvites        = {}
-    o.tUserSettings    = {}
+    o.arFriends         = {}
+    o.arAccountFriends  = {}
+    o.arAccountInvites  = {}
+    o.arInvites         = {}
+    o.tUserSettings     = {}
+    o.tExpandedOffsets  = {}
+    o.tMinimumSize     = {
+      width = 200,
+      height = 120
+    }
+    o.tCollapsedSize   = {
+      nOL = 0,
+      nOT = 0,
+      nOR = 64,
+      nOB = 34
+    }
 
     o.cColorOffline = ApolloColor.new("UI_BtnTextGrayNormal")
 
@@ -78,14 +89,25 @@ function VikingBuddies:OnLoad()
     -- load our form file
   self.xmlDoc = XmlDoc.CreateFromFile("VikingBuddies.xml")
   self.xmlDoc:RegisterCallback("OnDocLoaded", self)
+
 end
 
 function VikingBuddies:OnSave(eType)
+  if eType ~= GameLib.CodeEnumAddonSaveLevel.Character then
+    return nil
+  end
 
-  local tSavedData = self.tUserSettings
-  tSavedData.nOL, tSavedData.nOT, tSavedData.nOR, tSavedData.nOB = self.wndMain:GetAnchorOffsets()
-  tSavedData.nListOL, tSavedData.nListOT, tSavedData.nListOR, tSavedData.nListOB = self.wndListWindow:GetAnchorOffsets()
-  tSavedData.bShowList = self.bShowList
+  local tCurrentOffsets = self:GetCurrentOffsets(self.wndMain)
+
+  if self.bShowList then
+    self.tExpandedOffsets = tCurrentOffsets
+  end
+
+  local tSavedData = {
+    tCurrentOffsets = tCurrentOffsets,
+    tExpandedOffsets = self.tExpandedOffsets,
+    bShowList = self.bShowList
+  }
 
   return tSavedData
 end
@@ -93,7 +115,7 @@ end
 function VikingBuddies:OnRestore(eType, tSavedData)
 
   if tSavedData ~= nil then
-    --self.tUserSettings = tSavedData
+    -- self.tUserSettings = tSavedData
     for idx, item in pairs(tSavedData) do
       self.tUserSettings[idx] = item
     end
@@ -102,16 +124,6 @@ function VikingBuddies:OnRestore(eType, tSavedData)
 
 end
 
-function VikingBuddies:PositionWindow()
-
-  if self.tUserSettings.nOL then
-    self.wndMain:SetAnchorOffsets(self.tUserSettings.nOL, self.tUserSettings.nOT, self.tUserSettings.nOR, self.tUserSettings.nOB)
-  end
-  if self.tUserSettings.nListOL then
-    self.wndListWindow:SetAnchorOffsets(self.tUserSettings.nListOL, self.tUserSettings.nListOT, self.tUserSettings.nListOR, self.tUserSettings.nListOB)
-  end
-
-end
 
 -----------------------------------------------------------------------------------------------
 -- VikingBuddies OnDocLoaded
@@ -133,16 +145,21 @@ function VikingBuddies:OnDocLoaded()
     self.wndMain:Show(true, true)
     self.wndOptions:Show(false, true)
 
+    -- Event_FireGenericEvent("SendVarToRover", "wndMain", self.wndMain)
+    Apollo.RegisterSlashCommand("vb", "OnVikingBuddiesOn", self)
+
     -- I need to handle this better
     self.bShowList = self.tUserSettings.bShowList
     self.wndListWindow:Show(self.bShowList, true)
-    self.wndListWindow:SetSizingMinimum(200, 120)
+    self.wndMain:SetSizingMinimum(self.tMinimumSize.width, self.tMinimumSize.height)
 
 
     -- Restore the checkbutton state
     self.wndMain:FindChild("Button"):SetCheck(self.bShowList)
 
-    self:PositionWindow()
+    -- self:PositionWindow()
+    -- Event_FireGenericEvent("SendVarToRover", "self.tUserSettings", self.tUserSettings)
+    self:ResizeFriendsList(self.bShowList, true)
 
     -- if the xmlDoc is no longer needed, you should set it to nil
     -- self.xmlDoc = nil
@@ -156,6 +173,9 @@ function VikingBuddies:OnDocLoaded()
   end
 end
 
+function VikingBuddies:OnVikingBuddiesOn()
+  self.wndMain:SetAnchorOffsets(200, 200, 600, 600)
+end
 
 -----------------------------------------------------------------------------------------------
 -- VikingBuddies Functions
@@ -322,9 +342,93 @@ function VikingBuddies:UpdateBuddiesOnline()
 
 end
 
+function VikingBuddies:ResizeFriendsList(bExpand, bSetup)
+  -- Print("VikingBuddies:ResizeFriendsList()")
+
+  -- local bSetup = b or false
+
+  -- Print("bSetup: " .. tostring(bSetup))
+
+  local tCurrentOffsets = {}
+  local tNewOffsets = {}
+
+  if bSetup then
+    tCurrentOffsets = self.tUserSettings.tCurrentOffsets
+    self.tExpandedOffsets = self.tUserSettings.tExpandedOffsets
+    -- Event_FireGenericEvent("SendVarToRover", "self.tUserSettings", self.tUserSettings)
+  else
+    tCurrentOffsets.nOL, tCurrentOffsets.nOT, tCurrentOffsets.nOR, tCurrentOffsets.nOB = self.wndMain:GetAnchorOffsets()
+  end
+
+  -- Print(" - # tCurrentOffsets")
+  -- Print(" - nOL: " .. tCurrentOffsets.nOL )
+  -- Print(" - nOT: " .. tCurrentOffsets.nOT )
+  -- Print(" - nOR: " .. tCurrentOffsets.nOR .." (" .. tCurrentOffsets.nOR - tCurrentOffsets.nOL .. ")")
+  -- Print(" - nOB: " .. tCurrentOffsets.nOB .." (" .. tCurrentOffsets.nOB - tCurrentOffsets.nOT .. ")")
+
+  if bExpand then
+    -- Print(" - Expand")
+
+    if self.tExpandedOffsets.nOL then
+      -- Print(" - existing expanded data")
+      self.tExpandedOffsets = {
+        nOL = tCurrentOffsets.nOL,
+        nOT = tCurrentOffsets.nOT,
+        nOR = self.tExpandedOffsets.nOR + (tCurrentOffsets.nOL - self.tExpandedOffsets.nOL),
+        nOB = self.tExpandedOffsets.nOB + (tCurrentOffsets.nOT - self.tExpandedOffsets.nOT)
+      }
+      -- Print(" - nOL: " .. self.tExpandedOffsets.nOL )
+      -- Print(" - nOT: " .. self.tExpandedOffsets.nOT )
+      -- Print(" - nOR: " .. self.tExpandedOffsets.nOR .." (" .. self.tExpandedOffsets.nOR - self.tExpandedOffsets.nOL .. ")")
+      -- Print(" - nOB: " .. self.tExpandedOffsets.nOB .." (" .. self.tExpandedOffsets.nOB - self.tExpandedOffsets.nOT .. ")")
+    else
+      -- Print(" - creating new expanded data")
+      self.tExpandedOffsets = {
+        nOL = tCurrentOffsets.nOL,
+        nOT = tCurrentOffsets.nOT,
+        nOR = tCurrentOffsets.nOR + self.tMinimumSize.width,
+        nOB = tCurrentOffsets.nOB + self.tMinimumSize.height
+      }
+    end
+
+    tNewOffsets = self.tExpandedOffsets
+
+
+  else
+    -- Print(" - Collapse")
+    -- Print(" - # tCurrentOffsets")
+    -- Print(" - nOL: " .. tCurrentOffsets.nOL )
+    -- Print(" - nOT: " .. tCurrentOffsets.nOT )
+    -- Print(" - nOR: " .. tCurrentOffsets.nOR .." (" .. tCurrentOffsets.nOR - tCurrentOffsets.nOL .. ")")
+    -- Print(" - nOB: " .. tCurrentOffsets.nOB .." (" .. tCurrentOffsets.nOB - tCurrentOffsets.nOT .. ")")
+    if not bSetup then
+      self.tExpandedOffsets = tCurrentOffsets
+    end
+
+    tNewOffsets =  {
+      nOL = tCurrentOffsets.nOL,
+      nOT = tCurrentOffsets.nOT,
+      nOR = tCurrentOffsets.nOL + self.tCollapsedSize.nOR,
+      nOB = tCurrentOffsets.nOT + self.tCollapsedSize.nOB
+    }
+    -- Print(" - # tNewOffsets")
+    -- Print(" - nOL: " .. tNewOffsets.nOL )
+    -- Print(" - nOT: " .. tNewOffsets.nOT )
+    -- Print(" - nOR: " .. tNewOffsets.nOR .." (" .. tNewOffsets.nOR - tNewOffsets.nOL .. ")")
+    -- Print(" - nOB: " .. tNewOffsets.nOB .." (" .. tNewOffsets.nOB - tNewOffsets.nOT .. ")")
+
+  end
+
+  self.wndMain:SetStyle("Sizable", bExpand)
+  self.wndMain:SetAnchorOffsets(tNewOffsets.nOL, tNewOffsets.nOT, tNewOffsets.nOR, tNewOffsets.nOB)
+
+end
 
 function VikingBuddies:ShowFriendsList(bShow)
   self.wndListWindow:Show(bShow, true)
+  self:ResizeFriendsList(bShow)
+
+  -- store the display state
   self.bShowList = bShow
 end
 
@@ -336,6 +440,11 @@ function VikingBuddies:OnListUncheck( wndHandler, wndControl, eMouseButton )
   self:ShowFriendsList(false)
 end
 
+function VikingBuddies:GetCurrentOffsets(wnd)
+  local tCurrentOffsets = {}
+  tCurrentOffsets.nOL, tCurrentOffsets.nOT, tCurrentOffsets.nOR, tCurrentOffsets.nOB = wnd:GetAnchorOffsets()
+  return tCurrentOffsets
+end
 ---------------------------------------------------------------------------------------------------
 -- BuddyLine Functions
 ---------------------------------------------------------------------------------------------------
