@@ -134,32 +134,12 @@ function VikingBuddies:OnDocLoaded()
       self.wndOptions       = Apollo.LoadForm(self.xmlDoc, "VikingBuddiesForm", nil, self)
       self.wndMain          = Apollo.LoadForm(self.xmlDoc, "BuddyList", nil, self)
 
-      self.wndListWindow    = self.wndMain:FindChild("ListWindow")
-      self.wndListContainer = self.wndMain:FindChild("ListContainer")
 
     if self.wndMain == nil then
       Apollo.AddAddonErrorText(self, "Could not load the main window for some reason.")
       return
     end
 
-    self.wndMain:Show(true, true)
-    self.wndOptions:Show(false, true)
-
-    -- Event_FireGenericEvent("SendVarToRover", "wndMain", self.wndMain)
-    Apollo.RegisterSlashCommand("vb", "OnVikingBuddiesOn", self)
-
-    -- I need to handle this better
-    self.bShowList = self.tUserSettings.bShowList
-    self.wndListWindow:Show(self.bShowList, true)
-    self.wndMain:SetSizingMinimum(self.tMinimumSize.width, self.tMinimumSize.height)
-
-
-    -- Restore the checkbutton state
-    self.wndMain:FindChild("Button"):SetCheck(self.bShowList)
-
-    -- self:PositionWindow()
-    -- Event_FireGenericEvent("SendVarToRover", "self.tUserSettings", self.tUserSettings)
-    self:ResizeFriendsList(self.bShowList, true)
 
     -- if the xmlDoc is no longer needed, you should set it to nil
     -- self.xmlDoc = nil
@@ -168,8 +148,26 @@ function VikingBuddies:OnDocLoaded()
     -- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 
     self.timer = ApolloTimer.Create(0.100, true, "OnRenderLoop", self)
+    Apollo.RegisterSlashCommand("vb", "OnVikingBuddiesOn", self)
 
     -- Do additional Addon initialization here
+    -- Restore the Show State
+    self.bShowList = self.tUserSettings.bShowList
+
+    self.wndListWindow    = self.wndMain:FindChild("ListWindow")
+    self.wndListContainer = self.wndMain:FindChild("ListContainer")
+
+    -- Show the list window if it's set to show ;)
+    self.wndListWindow:Show(self.bShowList, true)
+    self.wndMain:Show(true, true)
+    self.wndOptions:Show(false, true)
+
+
+    self.wndMain:SetSizingMinimum(self.tMinimumSize.width, self.tMinimumSize.height)
+
+    -- Restore the checkbutton state
+    self.wndMain:FindChild("ListToggleButton"):SetCheck(self.bShowList)
+    self:ResizeFriendsList(self.bShowList, true)
   end
 end
 
@@ -177,12 +175,11 @@ function VikingBuddies:OnVikingBuddiesOn()
   self.wndMain:SetAnchorOffsets(200, 200, 600, 600)
 end
 
------------------------------------------------------------------------------------------------
--- VikingBuddies Functions
------------------------------------------------------------------------------------------------
--- Define general functions here
 
--- on timer
+-----------------------------------------------------------------------------------------------
+-- VikingBuddies RENDER LOOP
+-----------------------------------------------------------------------------------------------
+
 function VikingBuddies:OnRenderLoop()
 
   -- Don't bother rendering the list if it's not being displayed
@@ -195,7 +192,10 @@ function VikingBuddies:OnRenderLoop()
 
 end
 
--- LOCAL STUFF
+
+-----------------------------------------------------------------------------------------------
+-- VikingBuddies Render management functions
+-----------------------------------------------------------------------------------------------
 
 function VikingBuddies:GetLineByFriendId(nId)
   for key, wndPlayerEntry in pairs(self.wndListContainer:GetChildren()) do
@@ -206,6 +206,7 @@ function VikingBuddies:GetLineByFriendId(nId)
 
   return nil
 end
+
 
 function VikingBuddies:UpdateBuddyLine(tFriend)
   local wndParent = self.wndListContainer
@@ -224,33 +225,31 @@ function VikingBuddies:UpdateBuddyLine(tFriend)
 end
 
 function VikingBuddies:UpdateFriendData(wndBuddyLine, tFriend)
-  -- Event_FireGenericEvent("SendVarToRover", "wndBuddyLine: " .. tFriend.nId, tFriend)
 
-  local colorText = self.tTextColors.offline
+  local colorText   = self.tTextColors.offline
   local colorStatus = self.tStatusColors.offline
 
-  if tFriend.fLastOnline == 0 then
-    colorText = self.tTextColors[tFriend.nPresenceState]
-    colorStatus = self.tStatusColors[tFriend.nPresenceState]
+  local bOnline = tFriend.fLastOnline == 0
+
+  if bOnline then
+    nPresenceState = tFriend.nPresenceState or 0
+    colorText   = self.tTextColors[nPresenceState]
+    colorStatus = self.tStatusColors[nPresenceState]
   else
-    colorText = self.cColorOffline
+    colorText   = self.cColorOffline
     colorStatus = self.cColorOffline
   end
 
-
-
   -- Update data
-  local wndName = wndBuddyLine:FindChild("Name")
-  local wndStatus = wndBuddyLine:FindChild("StatusIcon")
+  local wndName         = wndBuddyLine:FindChild("Name")
+  local wndStatus       = wndBuddyLine:FindChild("StatusIcon")
+  local wndButtons      = wndBuddyLine:FindChild("Buttons")
 
+  wndButtons:Show(bOnline)
+  wndBuddyLine:Enable(bOnline)
   wndName:SetText(tFriend.strCharacterName)
   wndName:SetTextColor(colorText)
   wndStatus:SetBGColor(colorStatus)
-
-  -- Write the data
-  -- tFriend.wnd = wndBuddyLine
-  -- self.arFriends[tFriend.nId] = tFriend
-  -- Event_FireGenericEvent("SendVarToRover", "::UpdateFriendData: " .. tFriend.nId, tFriend)
 
 end
 
@@ -283,20 +282,6 @@ function VikingBuddies:GetFriends()
 end
 
 
------------------------------------------------------------------------------------------------
--- VikingBuddiesForm Functions
------------------------------------------------------------------------------------------------
--- when the OK button is clicked
-function VikingBuddies:OnOK()
-  self.wndMain:Close() -- hide the window
-end
-
--- when the Cancel button is clicked
-function VikingBuddies:OnCancel()
-  self.wndMain:Close() -- hide the window
-end
-
-
 ---------------------------------------------------------------------------------------------------
 -- BuddyList Functions
 ---------------------------------------------------------------------------------------------------
@@ -309,7 +294,6 @@ function VikingBuddies:UpdateBuddyList()
 
   for key, tFriend in pairs(self.arFriends) do
     self:UpdateBuddyLine(tFriend)
-    -- Event_FireGenericEvent("SendVarToRover", "tFriend: " .. tostring(tFriend.strCharacterName), tFriend)
   end
 
 
@@ -319,16 +303,17 @@ function VikingBuddies:UpdateBuddyList()
     local friendLeft = wndLeft:GetData()
     local friendRight = wndRight:GetData()
 
-    local state = friendLeft.nPresenceState or -1
+    local leftState = friendLeft.fLastOnline
+    local rightState = friendRight.fLastOnline
 
-    return state >= 0
+    return (leftState or 0) < (rightState or 0)
 
   end)
 end
 
+
 function VikingBuddies:UpdateBuddiesOnline()
-  -- tFriend.nPresenceState
-  -- for i = 0, #self.arFriends do
+
   local nOnline = 0
   for key, tFriend in pairs(FriendshipLib.GetList()) do
     if tFriend.fLastOnline == 0 then
@@ -336,7 +321,6 @@ function VikingBuddies:UpdateBuddiesOnline()
     end
   end
 
-  -- local btnButton = wndBuddiesOnline:FindChild("Button")
   local txtBuddiesOnline = self.wndMain:FindChild("BuddiesOnline")
   txtBuddiesOnline:SetText(nOnline)
 
@@ -345,44 +329,33 @@ end
 function VikingBuddies:ResizeFriendsList(bExpand, bSetup)
   -- Print("VikingBuddies:ResizeFriendsList()")
 
-  -- local bSetup = b or false
-
-  -- Print("bSetup: " .. tostring(bSetup))
-
   local tCurrentOffsets = {}
   local tNewOffsets = {}
 
   if bSetup then
     tCurrentOffsets = self.tUserSettings.tCurrentOffsets
     self.tExpandedOffsets = self.tUserSettings.tExpandedOffsets
-    -- Event_FireGenericEvent("SendVarToRover", "self.tUserSettings", self.tUserSettings)
   else
     tCurrentOffsets.nOL, tCurrentOffsets.nOT, tCurrentOffsets.nOR, tCurrentOffsets.nOB = self.wndMain:GetAnchorOffsets()
   end
 
-  -- Print(" - # tCurrentOffsets")
-  -- Print(" - nOL: " .. tCurrentOffsets.nOL )
-  -- Print(" - nOT: " .. tCurrentOffsets.nOT )
-  -- Print(" - nOR: " .. tCurrentOffsets.nOR .." (" .. tCurrentOffsets.nOR - tCurrentOffsets.nOL .. ")")
-  -- Print(" - nOB: " .. tCurrentOffsets.nOB .." (" .. tCurrentOffsets.nOB - tCurrentOffsets.nOT .. ")")
 
   if bExpand then
-    -- Print(" - Expand")
+  -- If the window should be Expanded
 
     if self.tExpandedOffsets.nOL then
-      -- Print(" - existing expanded data")
+      -- If we already have Expanded Offsets stored
+
       self.tExpandedOffsets = {
         nOL = tCurrentOffsets.nOL,
         nOT = tCurrentOffsets.nOT,
         nOR = self.tExpandedOffsets.nOR + (tCurrentOffsets.nOL - self.tExpandedOffsets.nOL),
         nOB = self.tExpandedOffsets.nOB + (tCurrentOffsets.nOT - self.tExpandedOffsets.nOT)
       }
-      -- Print(" - nOL: " .. self.tExpandedOffsets.nOL )
-      -- Print(" - nOT: " .. self.tExpandedOffsets.nOT )
-      -- Print(" - nOR: " .. self.tExpandedOffsets.nOR .." (" .. self.tExpandedOffsets.nOR - self.tExpandedOffsets.nOL .. ")")
-      -- Print(" - nOB: " .. self.tExpandedOffsets.nOB .." (" .. self.tExpandedOffsets.nOB - self.tExpandedOffsets.nOT .. ")")
+
     else
-      -- Print(" - creating new expanded data")
+
+      -- This is probably the first time you've run the addon, ever... so we need to set some things up
       self.tExpandedOffsets = {
         nOL = tCurrentOffsets.nOL,
         nOT = tCurrentOffsets.nOT,
@@ -391,17 +364,16 @@ function VikingBuddies:ResizeFriendsList(bExpand, bSetup)
       }
     end
 
+    -- Cache the Expanded Offsets to use later on in this method
     tNewOffsets = self.tExpandedOffsets
 
-
   else
-    -- Print(" - Collapse")
-    -- Print(" - # tCurrentOffsets")
-    -- Print(" - nOL: " .. tCurrentOffsets.nOL )
-    -- Print(" - nOT: " .. tCurrentOffsets.nOT )
-    -- Print(" - nOR: " .. tCurrentOffsets.nOR .." (" .. tCurrentOffsets.nOR - tCurrentOffsets.nOL .. ")")
-    -- Print(" - nOB: " .. tCurrentOffsets.nOB .." (" .. tCurrentOffsets.nOB - tCurrentOffsets.nOT .. ")")
+  -- Otherwise the window should be Collapsed
+
     if not bSetup then
+      -- If this is the first time the addon is loading this session,
+      -- then we need to use the CurrentOffsets for the Expanded Data.
+      -- ExpandedData is only saved when toggling between minimized and maximized.
       self.tExpandedOffsets = tCurrentOffsets
     end
 
@@ -411,14 +383,10 @@ function VikingBuddies:ResizeFriendsList(bExpand, bSetup)
       nOR = tCurrentOffsets.nOL + self.tCollapsedSize.nOR,
       nOB = tCurrentOffsets.nOT + self.tCollapsedSize.nOB
     }
-    -- Print(" - # tNewOffsets")
-    -- Print(" - nOL: " .. tNewOffsets.nOL )
-    -- Print(" - nOT: " .. tNewOffsets.nOT )
-    -- Print(" - nOR: " .. tNewOffsets.nOR .." (" .. tNewOffsets.nOR - tNewOffsets.nOL .. ")")
-    -- Print(" - nOB: " .. tNewOffsets.nOB .." (" .. tNewOffsets.nOB - tNewOffsets.nOT .. ")")
 
   end
 
+  -- You shouldn't be able to resize the window when collapsed
   self.wndMain:SetStyle("Sizable", bExpand)
   self.wndMain:SetAnchorOffsets(tNewOffsets.nOL, tNewOffsets.nOT, tNewOffsets.nOR, tNewOffsets.nOB)
 
@@ -431,6 +399,11 @@ function VikingBuddies:ShowFriendsList(bShow)
   -- store the display state
   self.bShowList = bShow
 end
+
+
+---------------------------------------------------------------------------------------------------
+-- VikingBuddies Event Functions
+---------------------------------------------------------------------------------------------------
 
 function VikingBuddies:OnListCheck( wndHandler, wndControl, eMouseButton )
   self:ShowFriendsList(true)
@@ -445,8 +418,10 @@ function VikingBuddies:GetCurrentOffsets(wnd)
   tCurrentOffsets.nOL, tCurrentOffsets.nOT, tCurrentOffsets.nOR, tCurrentOffsets.nOB = wnd:GetAnchorOffsets()
   return tCurrentOffsets
 end
+
+
 ---------------------------------------------------------------------------------------------------
--- BuddyLine Functions
+-- VikingBuddies:BuddyLine Event Functions
 ---------------------------------------------------------------------------------------------------
 
 function VikingBuddies:OnGroupButtonClick( wndHandler, wndControl, eMouseButton )
@@ -455,6 +430,25 @@ function VikingBuddies:OnGroupButtonClick( wndHandler, wndControl, eMouseButton 
 
   -- Event_FireGenericEvent("SendVarToRover", "button click", data)
 end
+
+function VikingBuddies:OnWhisperButtonClick( wndHandler, wndControl, eMouseButton )
+  local data = wndControl:GetParent():GetData()
+  Event_FireGenericEvent("GenericEvent_ChatLogWhisper", data.strCharacterName)
+end
+
+-----------------------------------------------------------------------------------------------
+-- VikingBuddiesForm Event Functions
+-----------------------------------------------------------------------------------------------
+-- when the OK button is clicked
+function VikingBuddies:OnOK()
+  self.wndMain:Close() -- hide the window
+end
+
+-- when the Cancel button is clicked
+function VikingBuddies:OnCancel()
+  self.wndMain:Close() -- hide the window
+end
+
 
 -----------------------------------------------------------------------------------------------
 -- VikingBuddies Instance
