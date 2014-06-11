@@ -147,7 +147,7 @@ function VikingBuddies:OnDocLoaded()
     -- Register handlers for events, slash commands and timer, etc.
     -- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 
-    self.timer = ApolloTimer.Create(0.100, true, "OnRenderLoop", self)
+    self.timer = ApolloTimer.Create(1, true, "OnRenderLoop", self)
     Apollo.RegisterSlashCommand("vb", "OnVikingBuddiesOn", self)
 
     -- Do additional Addon initialization here
@@ -332,7 +332,7 @@ function VikingBuddies:ResizeFriendsList(bExpand, bSetup)
   local tCurrentOffsets = {}
   local tNewOffsets = {}
 
-  if bSetup then
+  if bSetup and self.tUserSettings.tCurrentOffsets then
     tCurrentOffsets = self.tUserSettings.tCurrentOffsets
     self.tExpandedOffsets = self.tUserSettings.tExpandedOffsets
   else
