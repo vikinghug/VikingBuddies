@@ -89,6 +89,7 @@ function VikingBuddies:OnLoad()
     -- load our form file
   self.xmlDoc = XmlDoc.CreateFromFile("VikingBuddies.xml")
   self.xmlDoc:RegisterCallback("OnDocLoaded", self)
+  Apollo.LoadSprites("VikingSprites.xml")
 
 end
 
@@ -243,7 +244,11 @@ function VikingBuddies:UpdateFriendData(wndBuddyLine, tFriend)
   -- Update data
   local wndName         = wndBuddyLine:FindChild("Name")
   local wndStatus       = wndBuddyLine:FindChild("StatusIcon")
+  -- local wndType         = wndBuddyLine:FindChild("TypeIcon")
   local wndButtons      = wndBuddyLine:FindChild("Buttons")
+
+  wndStatus:SetSprite("VikingSprites:" .. tFriend.type)
+  wndStatus:SetSprite("VikingSprites:" .. tFriend.type)
 
   wndButtons:Show(bOnline)
   wndBuddyLine:Enable(bOnline)
@@ -262,6 +267,7 @@ function VikingBuddies:GetFriends()
       arIgnored[tFriend.nId] = tFriend
     else
       if tFriend.bFriend == true then
+        tFriend.type = "Single"
         arFriends[tFriend.nId] = tFriend
       end
     end
@@ -269,6 +275,7 @@ function VikingBuddies:GetFriends()
   end
 
   for key, tFriend in pairs(FriendshipLib.GetAccountList()) do
+    tFriend.type = "Account"
     arFriends[tFriend.nId] = tFriend
     -- Event_FireGenericEvent("SendVarToRover", "tFriend.nId: " .. tFriend.nId, self.arFriends[tFriend.nId])
     -- arFriends[tFriend.nId].wnd = self.arFriends[tFriend.nId].wnd
@@ -314,11 +321,17 @@ end
 
 function VikingBuddies:UpdateBuddiesOnline()
 
+  local isOnline = function(tFriend)
+    if tFriend.fLastOnline == 0 then return 1 else return 0 end
+  end
+
   local nOnline = 0
   for key, tFriend in pairs(FriendshipLib.GetList()) do
-    if tFriend.fLastOnline == 0 then
-      nOnline = nOnline + 1
-    end
+    nOnline = nOnline + isOnline(tFriend)
+  end
+
+  for key, tFriend in pairs(FriendshipLib.GetAccountList()) do
+    nOnline = nOnline + isOnline(tFriend)
   end
 
   local txtBuddiesOnline = self.wndMain:FindChild("BuddiesOnline")
@@ -425,14 +438,14 @@ end
 ---------------------------------------------------------------------------------------------------
 
 function VikingBuddies:OnGroupButtonClick( wndHandler, wndControl, eMouseButton )
-  local data = wndControl:GetParent():GetData()
+  local data = wndControl:GetParent():GetParent():GetData()
   GroupLib.Invite(data.strCharacterName)
 
   -- Event_FireGenericEvent("SendVarToRover", "button click", data)
 end
 
 function VikingBuddies:OnWhisperButtonClick( wndHandler, wndControl, eMouseButton )
-  local data = wndControl:GetParent():GetData()
+  local data = wndControl:GetParent():GetParent():GetData()
   Event_FireGenericEvent("GenericEvent_ChatLogWhisper", data.strCharacterName)
 end
 
