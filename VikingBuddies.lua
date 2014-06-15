@@ -277,7 +277,7 @@ function VikingBuddies:GetFriends()
   for key, tFriend in pairs(FriendshipLib.GetAccountList()) do
     tFriend.type = "Account"
     arFriends[tFriend.nId] = tFriend
-    -- Event_FireGenericEvent("SendVarToRover", "tFriend.nId: " .. tFriend.nId, self.arFriends[tFriend.nId])
+    -- Event_FireGenericEvent("SendVarToRover", "tFriend " .. tFriend.nId, FriendshipLib.GetAccountById(tFriend.nId))
     -- arFriends[tFriend.nId].wnd = self.arFriends[tFriend.nId].wnd
   end
 
@@ -446,7 +446,13 @@ end
 
 function VikingBuddies:OnWhisperButtonClick( wndHandler, wndControl, eMouseButton )
   local data = wndControl:GetParent():GetParent():GetData()
-  Event_FireGenericEvent("GenericEvent_ChatLogWhisper", data.strCharacterName)
+  if data.type == "Account" then
+    local strTargetName = data.arCharacters[1].strCharacterName
+    local strRealm = data.arCharacters[1].strRealm
+    Event_FireGenericEvent("Event_EngageAccountWhisper", data.strCharacterName, strTargetName, strRealm)
+  else
+    Event_FireGenericEvent("GenericEvent_ChatLogWhisper", data.strCharacterName)
+  end
 end
 
 -----------------------------------------------------------------------------------------------
