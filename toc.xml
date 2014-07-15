@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Addon Author="Vikinghug" APIVersion="8" Name="VikingBuddies" Description="I like a minimal friends list thingy">
+<Addon Author="Vikinghug" APIVersion="9" Name="VikingBuddies" Description="I like a minimal friends list thingy">
     <Script Name="VikingBuddies.lua"/>
     <Form Name="VikingBuddies.xml"/>
 </Addon>
