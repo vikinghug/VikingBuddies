@@ -25,60 +25,58 @@ local VikingBuddies = {}
 -- Initialization
 -----------------------------------------------------------------------------------------------
 function VikingBuddies:new(o)
-    o = o or {}
-    setmetatable(o, self)
-    self.__index = self
+  o = o or {}
+  setmetatable(o, self)
+  self.__index = self
 
-    -- indexing to call against the radio buttons
-    o.arFriends         = {}
-    o.arAccountFriends  = {}
-    o.arAccountInvites  = {}
-    o.arInvites         = {}
-    o.tUserSettings     = {}
-    o.tExpandedOffsets  = {}
-    o.tMinimumSize     = {
-      width = 200,
-      height = 120
-    }
-    o.tCollapsedSize   = {
-      nOL = 0,
-      nOT = 0,
-      nOR = 64,
-      nOB = 34
-    }
+  -- indexing to call against the radio buttons
+  o.arFriends         = {}
+  o.arAccountFriends  = {}
+  o.arAccountInvites  = {}
+  o.arInvites         = {}
+  o.tUserSettings     = {}
+  o.tExpandedOffsets  = {}
+  o.tMinimumSize     = {
+    width = 200,
+    height = 120
+  }
+  o.tCollapsedSize   = {
+    nOL = 0,
+    nOT = 0,
+    nOR = 64,
+    nOB = 34
+  }
 
-    o.cColorOffline = ApolloColor.new("UI_BtnTextGrayNormal")
+  o.cColorOffline = ApolloColor.new("UI_BtnTextGrayNormal")
 
-    o.tStatusColors = {
-      [FriendshipLib.AccountPresenceState_Available] = ApolloColor.new("ChatCircle2"),
-      [FriendshipLib.AccountPresenceState_Away]      = ApolloColor.new("yellow"),
-      [FriendshipLib.AccountPresenceState_Busy]      = ApolloColor.new("red"),
-      [FriendshipLib.AccountPresenceState_Invisible] = ApolloColor.new("gray")
-    }
-    o.tTextColors = {
-      [FriendshipLib.AccountPresenceState_Available] = ApolloColor.new("UI_TextHoloBodyHighlight"),
-      [FriendshipLib.AccountPresenceState_Away]      = ApolloColor.new("gray"),
-      [FriendshipLib.AccountPresenceState_Busy]      = ApolloColor.new("gray"),
-      [FriendshipLib.AccountPresenceState_Invisible] = ApolloColor.new("gray")
+  o.tStatusColors = {
+    [FriendshipLib.AccountPresenceState_Available] = ApolloColor.new("ChatCircle2"),
+    [FriendshipLib.AccountPresenceState_Away]      = ApolloColor.new("yellow"),
+    [FriendshipLib.AccountPresenceState_Busy]      = ApolloColor.new("red"),
+    [FriendshipLib.AccountPresenceState_Invisible] = ApolloColor.new("gray")
+  }
+  o.tTextColors = {
+    [FriendshipLib.AccountPresenceState_Available] = ApolloColor.new("UI_TextHoloBodyHighlight"),
+    [FriendshipLib.AccountPresenceState_Away]      = ApolloColor.new("gray"),
+    [FriendshipLib.AccountPresenceState_Busy]      = ApolloColor.new("gray"),
+    [FriendshipLib.AccountPresenceState_Invisible] = ApolloColor.new("gray")
 
-    }
+  }
 
-    o.arListTypes =
-    {
-      o.arFriends
-    }
+  o.arListTypes =
+  {
+    o.arFriends
+  }
 
 
-    return o
+  return o
 end
 
 function VikingBuddies:Init()
   local bHasConfigureFunction = false
   local strConfigureButtonText = ""
-  local tDependencies = {
-    -- "UnitOrPackageName",
-  }
-    Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
+  local tDependencies = { "VikingLibrary" }
+  Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
 
 
@@ -86,10 +84,9 @@ end
 -- VikingBuddies OnLoad
 -----------------------------------------------------------------------------------------------
 function VikingBuddies:OnLoad()
-    -- load our form file
+  -- load our form file
   self.xmlDoc = XmlDoc.CreateFromFile("VikingBuddies.xml")
   self.xmlDoc:RegisterCallback("OnDocLoaded", self)
-  Apollo.LoadSprites("VikingSprites.xml")
 
 end
 
@@ -116,11 +113,9 @@ end
 function VikingBuddies:OnRestore(eType, tSavedData)
 
   if tSavedData ~= nil then
-    -- self.tUserSettings = tSavedData
     for idx, item in pairs(tSavedData) do
       self.tUserSettings[idx] = item
     end
-
   end
 
 end
@@ -132,8 +127,8 @@ end
 function VikingBuddies:OnDocLoaded()
 
   if self.xmlDoc ~= nil and self.xmlDoc:IsLoaded() then
-      self.wndOptions       = Apollo.LoadForm(self.xmlDoc, "VikingBuddiesForm", nil, self)
-      self.wndMain          = Apollo.LoadForm(self.xmlDoc, "BuddyList", nil, self)
+    self.wndOptions       = Apollo.LoadForm(self.xmlDoc, "VikingBuddiesForm", nil, self)
+    self.wndMain          = Apollo.LoadForm(self.xmlDoc, "BuddyList", nil, self)
 
 
     if self.wndMain == nil then
